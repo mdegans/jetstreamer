@@ -16,6 +16,7 @@ except ImportError as e:
 from typing import (
     Iterable,
     Iterator,
+    Optional,
 )
 from jetstreamer import Frame
 
@@ -32,30 +33,63 @@ __all__ = {
 def jetson_camera_source(
         width: int = jetstreamer.DEFAULT_CAMERA_RES[0],
         height: int = jetstreamer.DEFAULT_CAMERA_RES[1],
-        camera: str = jetstreamer.DEFAULT_CAMERA) -> Iterator[Frame]:
+        camera: str = jetstreamer.DEFAULT_CAMERA,
+        interval: Optional[float] = None) -> Iterator[Frame]:
     """
     :yields: jetstreamer.Frame objects from jetson.utils.gstCamera
 
     :param width: camera width
     :param height: camera height
     :param camera: the camera to use as either a v4l2 path (eg. /dev/video0)
-                   or "0" to use the CSI camera.
-                   (default: {jetstreamer.DEFAULT_CAMERA})
+           or "0" to use the CSI camera.
+           (default: {jetstreamer.DEFAULT_CAMERA})
+    :param interval: the interval between captures in seconds. It makes
+           no sense to be less than 1/30 because this is as fast as gstCamera is
+           capturing internally.
+           (default: as fast as the pipeline can go)
     """
-    # TODO: add frame rate control to capture at consistent intervals
     logger.info(
         f"created {width}x{height} camera source from "
         f"{camera if camera != '0' else 'CSI camera'}")
     frame_counter = 0
     camera = jetson.utils.gstCamera(width, height, camera)
+    if interval is not None:
+        if interval < 1/30:
+            raise ValueError(
+                "Interval cannot be less than 1/30 of a second because gstCamera"
+                "only captures internally at 30fps. Recommended intervals are "
+                "evenly divisible by this to avoid jitter."
+                "(eg. 1/15, 1/10, 1, 2, 10) but not (1/29 1/24, etc...)")
+        else:
+            interval = float(interval)
+
+    def wait_for_interval(sometime):
+        # this is required to make sure frames are captured at regular intervals
+        # even if frames are dropped
+        nonlocal frame_counter
+        sleep_until = sometime + interval
+        sleep_for = sleep_until - time.time()
+        if sleep_for >= 0.0:  # probably faster than catching ValueError
+            time.sleep(sleep_for)
+        else:
+            logger.warning(
+                f"Missed frame target interval ({interval} seconds) for "
+                f"frame {frame_counter}. Dropping frame!!!")
+            frame_counter += 1
+            wait_for_interval(sleep_until)
+
     while True:
+        image = camera.CaptureRGBA(zeroCopy=True)
+        timestamp = time.time()
         metadata = {
             "fnum": frame_counter,
-            "timestamp": time.time()
+            "timestamp": timestamp
         }
-        frame = metadata, camera.CaptureRGBA(zeroCopy=True)
+        frame = metadata, image
         frame_counter += 1
         yield frame
+        if interval is not None:
+            wait_for_interval(timestamp)
 
 
 def jetson_classifier(source: Iterable[Frame], network, *args
@@ -125,4 +159,4 @@ def jetson_sequence_sink(source: Iterable[Frame],
                 f"{base_filename}{separator}{fnum}.{extension}",
                 *image)
             if fnum % 10 == 0:
-                logger.info(f"Wrote {fnum} frames.")
+                logger.info(f"Wrote frame# {fnum}")

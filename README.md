@@ -64,10 +64,10 @@ a compromise of your entire network.
 Simply run `jetstreamer` after installation.
 
 ```
-$ jetstreamer --help
 usage: __main__.py [-h] [--camera CAMERA] [--width WIDTH] [--height HEIGHT]
-                   [--classify CLASSIFY] [--detect DETECT]
-                   [--detect-threshold DETECT_THRESHOLD] [--format {jpg,png}]
+                   [--interval INTERVAL] [--classify CLASSIFY]
+                   [--detect DETECT] [--detect-threshold DETECT_THRESHOLD]
+                   [--format {jpg,png}]
                    base_filename
 
 Classify, Detect, or simply save frames from camera using Jetson Inference and Jetson Utils. 
@@ -87,11 +87,12 @@ optional arguments:
   --camera CAMERA       v4l2 device (eg. /dev/video0) or '0' for CSI camera (default: 0)
   --width WIDTH         camera capture width (default: 720)
   --height HEIGHT       camera capture height (default: 480)
+  --interval INTERVAL   interval between captures in seconds as float, fraction, or integer. Default is to capture as fast as the gstCamera will allow (currently 30fps) and thepipeline can process. (default: None)
   --classify CLASSIFY   classification network to use (default: None)
   --detect DETECT       detection network to use (default: None)
   --detect-threshold DETECT_THRESHOLD
                         detectNet threshold (default: 0.5)
-  --format {jpg,png}    format to save image sequence in (jpg is fastest) (default: jpg)
+  --format {jpg,png}    format to save image sequence in (jpg is probably fastest) (default: jpg)
 ```
 
 ## Uninstallation

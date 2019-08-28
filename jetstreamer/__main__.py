@@ -9,6 +9,7 @@ __all__ = [
 def cli_main():
     import logging
     import argparse
+    import fractions
 
     class Formatter(argparse.ArgumentDefaultsHelpFormatter,
                     argparse.RawTextHelpFormatter):
@@ -26,8 +27,9 @@ examples:
   jetstreamer --classify googlenet outfilename
   jetstreamer --detect pednet outfilename
   jetstreamer --detect pednet --classify googlenet outfilename""",
-        formatter_class=Formatter
+        formatter_class=Formatter,
     )
+
     ap.add_argument("base_filename",
                     help="base filename for images and sidecar files")
     ap.add_argument("--camera", help="v4l2 device (eg. /dev/video0) "
@@ -37,12 +39,18 @@ examples:
                     default=jetstreamer.DEFAULT_CAMERA_RES[0])
     ap.add_argument("--height", type=int, help="camera capture height",
                     default=jetstreamer.DEFAULT_CAMERA_RES[1])
+    ap.add_argument("--interval", type=fractions.Fraction,
+                    help="interval between captures in seconds as float, "
+                         "fraction, or integer. Default is to capture as fast "
+                         "as the gstCamera will allow (currently 30fps) and the"
+                         "pipeline can process.")
     ap.add_argument("--classify", help="classification network to use",)
     ap.add_argument("--detect", help="detection network to use",)
     ap.add_argument("--detect-threshold", help="detectNet threshold",
                     default=jetstreamer.DEFAULT_DETECTION_THRESHOLD)
     ap.add_argument("--format",
-                    help="format to save image sequence in (jpg is fastest)",
+                    help="format to save image sequence in "
+                         "(jpg is probably fastest)",
                     default=jetstreamer.DEFAULT_FORMAT,
                     choices=sorted(jetstreamer.FORMAT_CHOICES),
                     dest="format_")
@@ -56,6 +64,7 @@ examples:
 
 def main(base_filename,
          camera=jetstreamer.DEFAULT_CAMERA,
+         interval=None,
          width=jetstreamer.DEFAULT_CAMERA_RES[0],
          height=jetstreamer.DEFAULT_CAMERA_RES[1],
          classify=None,
@@ -71,6 +80,7 @@ def main(base_filename,
     with open(f"{base_filename}.nfo", "w") as nfo_file:
         nfo_file.write(
 f"""camera={camera}
+interval={interval}
 width={width}
 height={height}
 classify={classify}
@@ -81,7 +91,8 @@ format_={format_}
 
     # all pipeline functions that follow until the sink are Iterators[Frame]
     # (generators/coroutines that only yield and have no send/return)
-    frames = jetstreamer.pipeline.jetson_camera_source(width, height, camera)
+    frames = jetstreamer.pipeline.jetson_camera_source(
+        width, height, camera, interval)
 
     # if classification is requested, add it to the pipeline
     if classify:
@@ -98,7 +109,7 @@ format_={format_}
                                                   base_filename=base_filename,
                                                   extension=format_)
     except KeyboardInterrupt:
-        print(" lsCaught interrupt. Quitting.")
+        print(" Caught interrupt. Quitting.")
 
 
 if __name__ == '__main__':
