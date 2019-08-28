@@ -8,7 +8,7 @@ with open(os.path.join(THIS_DIR, 'README.md')) as readme:
 
 setuptools.setup(
     name='jetstreamer',
-    version='0.0.2',
+    version='0.0.3',
     description='Image and inference metadata recording utility for NVIDIA Tegra',
     long_description=long_description,
     long_description_content_type='text/markdown',
